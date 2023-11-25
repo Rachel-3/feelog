@@ -17,17 +17,42 @@ const Login: React.FC<LoginProps> = ({ navigation }) => {
     return re.test(email);
   };
 
-  const handleLogin = () => {
+  const handleLogin = async() => {
+
     if (!validateEmail(email)) {
       Alert.alert("오류", "올바르지 않은 이메일입니다.");
       return;
     }
-    //서버에 로그인 요청 로직 추가
 
-    Alert.alert('로그인 성공', `환영합니다!`, [
-      { text: 'OK', onPress: () => navigation.navigate('MainTab', { screen: 'Feed' }) }
-    ]);
-  };
+    try {
+      // API 요청
+      const response = await fetch('http://10.0.2.2:8080/users/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+        }),
+      });
+
+      const data = await response.json();
+
+    if (response.status === 200) {
+      
+      Alert.alert('로그인 성공', `환영합니다!`, [
+        { text: 'OK', onPress: () => navigation.navigate('MainTab', { screen: 'Feed' }) }
+      ]);
+
+    } else {
+      // 에러 처리
+      Alert.alert('로그인 실패', data.message);
+    }
+  } catch (error) {
+    console.error(error);
+  }
+};
 
   const handleGoToSignup = () => {
     navigation.navigate('Signup'); // 회원가입 화면으로 이동

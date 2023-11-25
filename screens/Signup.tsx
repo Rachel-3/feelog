@@ -9,7 +9,7 @@ interface SignupProps {
 
 const Signup: React.FC<SignupProps> = ({ navigation }) => {
   const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
+  const [name, setname] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -18,7 +18,7 @@ const Signup: React.FC<SignupProps> = ({ navigation }) => {
     return re.test(email);
   };
 
-  const handleSignup = () => {
+  const handleSignup = async () => {
     if (!validateEmail(email)) {
       Alert.alert("Error", "올바르지 않은 이메일입니다.");
       return;
@@ -34,13 +34,42 @@ const Signup: React.FC<SignupProps> = ({ navigation }) => {
       return;
     }
 
+    // 요청 데이터 생성
+    const requestData = {
+      email: email,
+      name: name,
+      password: password,
+    };
+
+    // 요청 데이터 콘솔에 로그로 출력
+    console.log('Request data:', requestData);
+
+    try {
+      // 백엔드 서버로 POST 요청
+      let response = await fetch('http://10.0.2.2:8080/users/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: email,
+          name: name,
+          password: password,
+        })
+      });
+      let json = await response.json();
+      console.log('회원가입 응답:', json);
+
     Alert.alert("회원가입 완료", "회원가입이 성공적으로 완료되었습니다.", [
       { text: "OK", onPress: () => navigation.navigate('Login') } // 로그인 화면으로 이동
     ]);
-    
-    console.log('회원가입', email, username, password, confirmPassword);
-  };
 
+    } catch (error) {
+    console.error(error);
+    Alert.alert("Error", "회원가입에 실패했습니다.");
+    }
+  };
+  
   const handleGoToLogin = () => {
     navigation.goBack(); // 이전 화면 (로그인 화면)으로 돌아가기
   };
@@ -52,8 +81,8 @@ const Signup: React.FC<SignupProps> = ({ navigation }) => {
       <TextInput
         style={styles.input}
         placeholder="이름"
-        value={username}
-        onChangeText={setUsername}
+        value={name}
+        onChangeText={setname}
         keyboardType="default"
       />
       <TextInput
