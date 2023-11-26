@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, View, TextInput, Alert, TouchableOpacity, Text } from 'react-native';
 import { NavigationProp } from '@react-navigation/native';
 import { RootStackParamList } from './Root';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Login 타입 정의
 interface LoginProps {
@@ -17,15 +18,13 @@ const Login: React.FC<LoginProps> = ({ navigation }) => {
     return re.test(email);
   };
 
-  const handleLogin = async() => {
-
+  const handleLogin = async () => {
     if (!validateEmail(email)) {
       Alert.alert("오류", "올바르지 않은 이메일입니다.");
       return;
     }
-
+  
     try {
-      // API 요청
       const response = await fetch('http://10.0.2.2:8080/users/login', {
         method: 'POST',
         headers: {
@@ -36,23 +35,28 @@ const Login: React.FC<LoginProps> = ({ navigation }) => {
           password: password,
         }),
       });
-
-      const data = await response.json();
-
-    if (response.status === 200) {
-      
-      Alert.alert('로그인 성공', `환영합니다!`, [
-        { text: 'OK', onPress: () => navigation.navigate('MainTab', { screen: 'Feed' }) }
-      ]);
-
-    } else {
-      // 에러 처리
-      Alert.alert('로그인 실패', data.message);
+  
+      if (response.status === 200) {
+        const token = await response.text();
+        await AsyncStorage.setItem('userToken', token);
+        Alert.alert('로그인 성공', '환영합니다!', [
+          { text: 'OK', onPress: () => navigation.navigate('MainTab', { screen: 'Feed' }) }
+        ]);
+      } else {
+        // 서버 응답 코드를 기반으로 오류 메시지 설정
+        let errorMessage = '로그인 실패';
+        if (response.status === 401) {
+          errorMessage = '잘못된 이메일 또는 비밀번호입니다.';
+        } else if (response.status === 500) {
+          errorMessage = '서버 오류가 발생했습니다.';
+        }
+        Alert.alert('로그인 실패', errorMessage);
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('로그인 실패', '네트워크 오류 또는 알 수 없는 오류가 발생했습니다.');
     }
-  } catch (error) {
-    console.error(error);
-  }
-};
+  };
 
   const handleGoToSignup = () => {
     navigation.navigate('Signup'); // 회원가입 화면으로 이동
