@@ -3,8 +3,8 @@ import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
 interface FloatingWriteButtonProps {
-  hidden: boolean;
-  onPress: () => void; // onPress 함수 추가
+  onPress: () => void;
+  hidden?: boolean; // 여기서 '?'를 추가하여 hidden을 선택적으로 만듭니다.
 }
 
 const FloatingWriteButton: React.FC<FloatingWriteButtonProps> = ({ hidden, onPress }) => {

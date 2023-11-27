@@ -1,5 +1,5 @@
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { Alert, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import WriteEditor from '../components/WriteEditor';
@@ -93,25 +93,42 @@ const saveDiary = async (diaryData: DiaryData) => {
 
     // 기존 일기를 수정하는 함수
     
+    // 기존 일기를 수정하는 함수
     const modifyDiary = async (diaryId: string, diaryData: DiaryData) => {
       if (!currentUser) {
-          console.error('No user logged in');
-          return;
+        console.error('No user logged in');
+        return;
       }
+    
+      const formattedData = {
+        title: diaryData.title,
+        content: diaryData.body,
+        date: diaryData.date, // 날짜 데이터를 서버가 요구하는 형식에 맞게 변환할 수 있습니다.
+        userId: currentUser.id, // 사용자 ID
+      };
+    
       try {
-          const response = await fetch(`http://10.0.2.2:8080/diaries/${diaryId}`, {
-              method: 'PUT',
-              headers: {
-                  'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ ...diaryData, userId: currentUser.id }),
-          });
-          if (!response.ok) throw new Error('Failed to modify diary');
-          // 응답 처리
+        const response = await fetch(`http://10.0.2.2:8080/diaries/${diaryId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formattedData),
+        });
+    
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to modify diary: ${errorText}`);
+        }
+    
+        const updatedDiary = await response.json();
+        console.log('Diary updated successfully:', updatedDiary);
       } catch (error) {
-          console.error('Error modifying diary:', error);
+        console.error('Error modifying diary:', error);
       }
-  };
+    };
+    
+
   
     // 일기를 삭제하는 함수
     const removeDiary = async (diaryId: string) => {
@@ -130,22 +147,51 @@ const saveDiary = async (diaryData: DiaryData) => {
     };
 
   // onSave 함수 내에서 onCreate를 호출합니다.
-  const onSave = async () => {
-    if (!currentUser) {
-      console.error('No user logged in');
-      return;
-    }
-    // DiaryData를 생성합니다.
-    const diaryData: DiaryData = {
-      title,
-      body,
-      date: date.toISOString(),
-      userId: currentUser.id,
-    };
-    // 백엔드에 일기를 저장하는 saveDiary 함수 호출
-    await saveDiary(diaryData);
-    navigation.goBack();
+  // onSave 함수
+const onSave = async () => {
+  if (!currentUser) {
+    console.error('No user logged in');
+    return;
+  }
+
+  const diaryData = {
+    title,
+    body,
+    date: date.toISOString(),
+    userId: currentUser.id,
   };
+
+  if (log && log.id) {
+    // 기존 일기 수정
+    await modifyDiary(log.id, diaryData);
+  } else {
+    // 새 일기 추가
+    await saveDiary(diaryData);
+  }
+
+  navigation.goBack();
+};
+
+  
+  
+  useEffect(() => {
+    // 화면에 포커스가 돌아올 때마다 실행될 로직
+    const onFocus = navigation.addListener('focus', () => {
+      if (log) {
+        // 기존 일기가 있으면 해당 내용으로 상태 변수를 설정
+        setTitle(log.title);
+        setBody(log.content);
+        setDate(new Date(log.creationDate));
+      } else {
+        // 새 일기 작성 시 기본 값으로 설정
+        setTitle('');
+        setBody('');
+        setDate(new Date());
+      }
+    });
+  
+    return onFocus; // 컴포넌트가 언마운트될 때 이벤트 리스너를 정리합니다.
+  }, [navigation, log]); // 의존성 배열에 'log'를 추가
   
 
   // 삭제 버튼 클릭 시 호출되는 함수

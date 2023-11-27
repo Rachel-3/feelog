@@ -4,6 +4,8 @@ import FeedList from '../components/FeedList';
 import FloatingWriteButton from '../components/FloatingWriteButton';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+
 
 // 로그 타입 정의
 type Log = {
@@ -22,6 +24,7 @@ function Feed() {
   const { currentUser } = useAuth(); // 현재 로그인한 사용자 가져오기
   const [logs, setLogs] = useState<Log[]>([]); // 로그 상태 관리
   const [hidden, setHidden] = useState<boolean>(false); // 버튼 숨김 상태 관리
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
   // 일기 데이터 불러오는 함수
   const loadDiaries = async () => {
@@ -50,29 +53,37 @@ function Feed() {
 
   // 컴포넌트 마운트 시 데이터 로드
   useEffect(() => {
-    loadDiaries();
-  }, []);
+    const unsubscribe = navigation.addListener('focus', loadDiaries);
+    return unsubscribe; // Clean up the event listener
+  }, [navigation]);
 
-  // 네비게이션 훅 사용
-  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
   // 'Write' 스크린으로 이동하는 함수
   const navigateToWrite = () => {
     navigation.navigate('Write');
   };
 
-  // FeedList에서 스크롤 이벤트 처리
   const onScrolledToBottom = (isBottom: boolean) => {
-    setHidden(isBottom);
+    setHidden(!isBottom); // 스크롤이 맨 아래가 아닐 때 hidden을 false로 설정
   };
-
+  
+  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const isBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 20;
+    onScrolledToBottom(isBottom);
+  };
+  
+  
   return (
     <View style={styles.block}>
-      <FeedList logs={logs} onScrolledToBottom={onScrolledToBottom} />
-      <FloatingWriteButton hidden={hidden} onPress={navigateToWrite} />
+      <FeedList logs={logs} onScroll={onScroll} />
+      {!hidden && (
+        <FloatingWriteButton onPress={navigateToWrite} />
+      )}
     </View>
   );
 }
+
 
 // 스타일 정의
 const styles = StyleSheet.create({

@@ -1,17 +1,39 @@
-import React from 'react';
-import { Platform, Pressable, StyleSheet, Text } from 'react-native';
+import React, { useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import EmotionAnalysisResultModal from './EmotionAnalysisResultModal'; 
 
-// Log 타입 정의
+// Log 타입 정의 (감정 데이터 필드 추가)
 type Log = {
   id: string;
   title: string;
   body: string;
   date: string;
+  emotions?: { // 감정 데이터 필드 추가
+    positive: number;
+    neutral: number;
+    negative: number;
+  };
 };
+
+// EmotionData 타입 정의
+type EmotionData = {
+  positive: number;
+  neutral: number;
+  negative: number;
+};
+
+// EmotionAnalysisResultModalProps 인터페이스 정의
+interface EmotionAnalysisResultModalProps {
+  visible: boolean;
+  emotionData: EmotionData;
+  onClose: () => void;
+  diaryId: number;
+  selectedSentiment: 'positive' | 'neutral' | 'negative';
+}
 
 // FeedListItem 타입 정의
 interface FeedListItemProps {
@@ -25,6 +47,7 @@ type RootStackParamList = {
   };
 };
 
+
 // Write 화면으로 이동을 위한 네비게이션 타입 정의
 type FeedListItemNavigationProp = StackNavigationProp<RootStackParamList, 'Write'>;
 
@@ -36,26 +59,16 @@ function formatDate(dateString?: string): string {
 
   const date = new Date(dateString);
   const now = new Date();
+  const diff = (now.getTime() - date.getTime()) / 1000;
 
-  // 현재 날짜와의 시간 차이 계산
-  const diff = now.getTime() - date.getTime();
-
-  // 시간 차이를 초 단위로 환산
-  const diffInSeconds = diff / 1000;
-
-  if (diffInSeconds < 60) {
+  if (diff < 60) {
     return '방금 전';
-  } else if (diffInSeconds < 60 * 60 * 24 * 3) {
-    // 3일 이내의 시간을 상대적으로 표시
+  } else if (diff < 60 * 60 * 24 * 3) {
     return formatDistanceToNow(date, { addSuffix: true, locale: ko });
   } else {
-    // 그 이상의 시간을 특정 포맷으로 표시
     return format(date, 'PPP EEE p', { locale: ko });
   }
 }
-
-
-
 
 // 텍스트 축약 함수
 function truncate(text: string): string {
@@ -65,10 +78,12 @@ function truncate(text: string): string {
   return '';
 }
 
-
 // FeedListItem 컴포넌트
 const FeedListItem: React.FC<FeedListItemProps> = ({ log }) => {
   const navigation = useNavigation<FeedListItemNavigationProp>();
+  const [isModalVisible, setModalVisible] = useState(false);
+  const [emotionData, setEmotionData] = useState<EmotionData>({ positive: 0, neutral: 0, negative: 0 });
+
 
   // 로그의 body가 정의되지 않았을 경우를 대비한 처리
   const bodyText = log.body || '내용 없음';
@@ -78,15 +93,65 @@ const FeedListItem: React.FC<FeedListItemProps> = ({ log }) => {
     navigation.navigate('Write', { log });
   };
 
+  
+
+  // 감정 점수가 가장 높은 감정을 반환하는 함수
+  function getHighestSentiment(emotionData: EmotionData): 'positive' | 'neutral' | 'negative' {
+    const { positive, neutral, negative } = emotionData;
+    if (positive >= neutral && positive >= negative) {
+      return 'positive';
+    } else if (negative >= neutral && negative >= positive) {
+      return 'negative';
+    } else {
+      return 'neutral';
+    }
+  }
+  
+  // 감정 분석 결과 확인 버튼 클릭 핸들러
+  const onAnalysisPress = async () => {
+    try {
+      // 백엔드 API 호출을 통해 감정 데이터 가져오기
+      const response = await fetch(`http://10.0.2.2:8080/diaries/${log.id}/emotions`);
+      if (!response.ok) {
+        throw new Error('감정 데이터 조회 실패');
+      }
+      const emotionsData = await response.json();
+      setEmotionData({
+        positive: emotionsData.positiveScore,
+        neutral: emotionsData.neutralScore,
+        negative: emotionsData.negativeScore,
+      });
+      setModalVisible(true);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+
+
   return (
-    <Pressable
-      style={styles.block}
-      android_ripple={{ color: '#ededed' }}
-      onPress={onPress}>
-      <Text style={styles.date}>{formatDate(log.date)}</Text>
-      <Text style={styles.title}>{log.title}</Text>
-      <Text style={styles.body}>{truncate(bodyText)}</Text>
-    </Pressable>
+    <>
+      <Pressable
+        style={styles.block}
+        android_ripple={{ color: '#ededed' }}
+        onPress={onPress}>
+        <Text style={styles.date}>{formatDate(log.date)}</Text>
+        <Text style={styles.title}>{log.title}</Text>
+        {/* 여기서 truncate 함수를 호출하여 본문 텍스트를 축약 */}
+        <Text style={styles.body}>{truncate(bodyText)}</Text>
+        {/* 감정 분석 버튼 추가 */}
+        <TouchableOpacity style={styles.analysisButton} onPress={onAnalysisPress}>
+          <Text style={styles.analysisButtonText}>결과 확인</Text>
+        </TouchableOpacity>
+      </Pressable>
+      <EmotionAnalysisResultModal
+        visible={isModalVisible}
+        emotionData={emotionData}
+        onClose={() => setModalVisible(false)}
+        diaryId={parseInt(log.id, 10)} // diaryId는 정수로 변환해야 합니다. parseInt 사용
+        selectedSentiment={getHighestSentiment(emotionData)} // 가장 높은 감정을 계산하는 함수를 호출하여 해당 값을 전달
+      />
+    </>
   );
 };
 
@@ -96,6 +161,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     paddingHorizontal: 16,
     paddingVertical: 24,
+    flexDirection: 'row', // flexDirection 추가
+    alignItems: 'center', // alignItems 추가
   },
   date: {
     fontSize: 12,
@@ -108,8 +175,18 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   body: {
-  
-  }
+    flex: 1, // body 스타일 수정
+  },
+  // 추가된 버튼 스타일
+  analysisButton: {
+    marginLeft: 10,
+    backgroundColor: '#5709b0',
+    padding: 8,
+    borderRadius: 5,
+  },
+  analysisButtonText: {
+    color: 'white',
+  },
 });
 
 export default FeedListItem;
