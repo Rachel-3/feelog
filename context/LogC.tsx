@@ -18,8 +18,15 @@ export type LogCType = {
   onRemove: (id: string) => void;
 };
 
-// LogC 컨텍스트 생성
-const LogC = createContext<LogCType | undefined>(undefined);
+// 기본값으로 빈 함수와 빈 배열을 제공
+const defaultLogCValue: LogCType = {
+  logs: [],
+  onCreate: () => {},
+  onModify: () => {},
+  onRemove: () => {},
+};
+
+const LogC = createContext<LogCType>(defaultLogCValue);
 
 // LogCProvider 컴포넌트의 props 타입 정의
 interface LogCProviderProps {
@@ -30,6 +37,7 @@ interface LogCProviderProps {
 export const LogCProvider: React.FC<LogCProviderProps> = ({ children }) => {
   const initialLogsRef = useRef<Log[] | null>(null); // 초기 로그 데이터 참조
   const [logs, setLogs] = useState<Log[]>([]); // 로그 데이터 상태
+
 
   // 로그 생성 함수
   const onCreate = ({ title, body, date }: Omit<Log, 'id'>) => {

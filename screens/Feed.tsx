@@ -1,10 +1,11 @@
-import React, { useContext, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import FeedList from '../components/FeedList';
 import FloatingWriteButton from '../components/FloatingWriteButton';
-import LogC, { LogCType } from '../context/LogC';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { useAuth } from '../context/AuthContext';
 
-// Log 타입 정의
+// 로그 타입 정의
 type Log = {
   id: string;
   title: string;
@@ -12,37 +13,71 @@ type Log = {
   date: string;
 };
 
+// 네비게이션 스택 파라미터 리스트 정의
+type RootStackParamList = {
+  Write: undefined;
+};
+
 function Feed() {
+  const { currentUser } = useAuth(); // 현재 로그인한 사용자 가져오기
+  const [logs, setLogs] = useState<Log[]>([]); // 로그 상태 관리
+  const [hidden, setHidden] = useState<boolean>(false); // 버튼 숨김 상태 관리
 
-  // LogC 컨텍스트 사용
-  const { logs } = useContext(LogC) as LogCType;
+  // 일기 데이터 불러오는 함수
+  const loadDiaries = async () => {
+    try {
+      // 백엔드 서버에서 일기 데이터를 불러옵니다.
+      const response = await fetch('http://10.0.2.2:8080/diaries', {
+        method: 'GET', // 또는 백엔드 서버에 맞는 HTTP 메소드
+        headers: {
+          // 필요한 경우 헤더를 설정합니다. 예: 인증 토큰
+          'Authorization': 'Bearer YOUR_AUTH_TOKEN',
+          'Content-Type': 'application/json',
+        },
+      });
+  
+      if (!response.ok) {
+        throw new Error('Server response was not ok');
+      }
+  
+      const data = await response.json();
+      setLogs(data); // 데이터를 상태에 저장합니다.
+    } catch (error) {
+      console.error('Failed to fetch diaries:', error);
+    }
+  };
+  
 
-  // 버튼 숨김 여부를 관리하는 상태 변수
-  const [hidden, setHidden] = useState<boolean>(false);
+  // 컴포넌트 마운트 시 데이터 로드
+  useEffect(() => {
+    loadDiaries();
+  }, []);
 
-  // FeedList 에서 스크롤이 화면 하단에 도달하면 호출되는 롤백 함수
+  // 네비게이션 훅 사용
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+
+  // 'Write' 스크린으로 이동하는 함수
+  const navigateToWrite = () => {
+    navigation.navigate('Write');
+  };
+
+  // FeedList에서 스크롤 이벤트 처리
   const onScrolledToBottom = (isBottom: boolean) => {
-    // isBottom 값에 따라 FloatingWriteButton을 표시 또는 숨김
-    setHidden(isBottom); 
+    setHidden(isBottom);
   };
 
   return (
-
-    // FeedList 컴포넌트를 렌더링하고 목록 로그를 전달
-    // 화면 하단에 위치한 FloatingWriteButton 컴포넌트를 렌더링하며, 버튼의 숨김 여부를 속성으로 전달
-
     <View style={styles.block}>
       <FeedList logs={logs} onScrolledToBottom={onScrolledToBottom} />
-
-      <FloatingWriteButton hidden={hidden} />
+      <FloatingWriteButton hidden={hidden} onPress={navigateToWrite} />
     </View>
   );
 }
 
-// 스타일 정의 
+// 스타일 정의
 const styles = StyleSheet.create({
   block: {
-    flex: 1, // 화면을 꽉채우도록
+    flex: 1,
   },
 });
 

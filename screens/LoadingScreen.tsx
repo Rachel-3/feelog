@@ -4,7 +4,7 @@ import { View, Text, StyleSheet } from 'react-native';
 const LoadingScreen = () => {
     return (
         <View style={styles.container}>
-        <Text style={styles.text}>Feelog</Text> {/* 텍스트는 반드시 <Text> 컴포넌트 내부에 있어야 합니다 */}
+        <Text style={styles.text}>Feelog</Text> {/* 텍스트 <Text> 컴포넌트 내부 */}
         </View>
     );
 };

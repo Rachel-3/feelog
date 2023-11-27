@@ -3,6 +3,8 @@ import { StyleSheet, View, TextInput, Alert, TouchableOpacity, Text } from 'reac
 import { NavigationProp } from '@react-navigation/native';
 import { RootStackParamList } from './Root';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import jwtDecode from 'jwt-decode';
+import { useAuth } from '../context/AuthContext';
 
 // Login 타입 정의
 interface LoginProps {
@@ -12,6 +14,7 @@ interface LoginProps {
 const Login: React.FC<LoginProps> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const { setCurrentUser } = useAuth(); // useAuth 훅 사용
 
   const validateEmail = (email: string) => {
     const re = /\S+@\S+\.\S+/;
@@ -38,7 +41,15 @@ const Login: React.FC<LoginProps> = ({ navigation }) => {
   
       if (response.status === 200) {
         const token = await response.text();
+        console.log('받은 토큰:', token); // 토큰 로그 출력
         await AsyncStorage.setItem('userToken', token);
+  
+        // 디코드된 토큰에서 'sub' 필드를 읽어 사용자 ID로 사용
+        const decoded = jwtDecode(token);
+        console.log('디코드된 토큰 정보:', decoded); // 디코드된 토큰 정보 로그 출력
+        const userId = decoded.sub;  // 'user_id' 대신 'sub' 사용
+        setCurrentUser({ id: userId }); // 사용자 상태 업데이트
+
         Alert.alert('로그인 성공', '환영합니다!', [
           { text: 'OK', onPress: () => navigation.navigate('MainTab', { screen: 'Feed' }) }
         ]);

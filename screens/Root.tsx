@@ -1,9 +1,18 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import Main from './Main';
-import Write from './Write';
+import MainTab from './Main';
+
 import Login from './Login';
 import Signup from './Signup';
+import Write from './Write';
+
+
+export type Log = {
+  id: string;
+  title: string;
+  body: string;
+  date: string;
+};
 
 export type RootStackParamList = {
   usenavigate(arg0: string): unknown;
@@ -11,7 +20,9 @@ export type RootStackParamList = {
   MainTab: {
     screen: 'Feed' | 'Calendar' | 'Search' | 'Login' | 'Signup';
   };
-  Write: undefined;
+  Write: {
+    log?: Log; // 여기서 Log는 일기 데이터의 타입
+  };
   Login: undefined;
   Signup: undefined;
   Feed: undefined; 
@@ -34,11 +45,11 @@ function RootStack() {
       />
       <Stack.Screen
         name="MainTab"
-        component={Main}
+        component={MainTab}
         options={{ headerShown: false }}
       />
-      <Stack.Screen
-        name="Write"
+      <Stack.Screen 
+        name="Write" 
         component={Write}
         options={{ headerShown: false }}
       />

@@ -6,6 +6,8 @@ import WriteEditor from '../components/WriteEditor';
 import WriteHeader from '../components/WriteHeader';
 import LogC, { LogCType } from '../context/LogC';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { useAuth } from '../context/AuthContext';
+
 
 // 앱의 라우트 및 파라미터 정의
 type RootStackParamList = {
@@ -23,11 +25,21 @@ type WriteScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Write'
 type Log = {
   id: string;
   title: string;
+  content: string;
+  creationDate: string;
+};
+
+type DiaryData = {
+  title: string;
   body: string;
   date: string;
+  userId: string;
 };
 
 function Write() {
+
+  const { currentUser } = useAuth(); // 현재 로그인한 사용자 가져오기
+
   // 현재 라우트와 네비게이션을 가져오기 위해 useRoute와 useNavigation 훅 사용
   const route = useRoute<WriteScreenRouteProp>();
   const navigation = useNavigation<WriteScreenNavigationProp>();
@@ -37,33 +49,104 @@ function Write() {
 
   // 제목, 내용, 날짜 상태 변수 초기화
   const [title, setTitle] = useState<string>(log?.title ?? '');
-  const [body, setBody] = useState<string>(log?.body ?? '');
-  const [date, setDate] = useState<Date>(log ? new Date(log.date) : new Date());
+  const [body, setBody] = useState<string>(log?.content ?? '');
+  const [date, setDate] = useState<Date>(log ? new Date(log.creationDate) : new Date());
 
-  // LogC 컨텍스트에서 함수 가져오기
-  const { onCreate, onModify, onRemove } = useContext(LogC) as LogCType;
+  // `useContext(LogC)`를 통해 컨텍스트에서 함수들 가져오기
+  const logContext = useContext(LogC);
 
-  // 저장 버튼 클릭 시 호출되는 함수
-  const onSave = () => {
-    if (log) {
-      // 기존 로그 수정하는 경우
-      onModify({
-        id: log.id,
-        date: date.toISOString(),
-        title,
-        body,
-      });
-    } else {
-      // 새로운 로그를 생성하는 경우
-      onCreate({
-        title,
-        body,
-        date: date.toISOString(),
-      });
-    }
-    // 화면을 닫고 이전 화면으로 돌아감
-    navigation.pop();
+  // 컨텍스트에서 함수들을 가져올 때 옵셔널 체이닝을 사용
+const { onCreate, onModify, onRemove } = logContext ?? {};
+
+const saveDiary = async (diaryData: DiaryData) => {
+  if (!currentUser) {
+      console.error('No user logged in');
+      return;
+  }
+
+  // 백엔드가 기대하는 형식에 맞춰 데이터를 구조화합니다.
+  const formattedData = {
+      title: diaryData.title,
+      content: diaryData.body, // 'body'를 'content'로 변경
+      user: {
+          id: diaryData.userId // 'userId'를 'user' 객체 안의 'id'로 변경
+      }
   };
+
+  console.log('Sending formatted diary data to backend:', formattedData); // 수정된 데이터 로깅
+
+  try {
+      const response = await fetch('http://10.0.2.2:8080/diaries', {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formattedData), // 수정된 데이터 사용
+      });
+      if (!response.ok) throw new Error('Failed to save diary');
+      // 응답 처리
+  } catch (error) {
+      console.error('Error saving diary:', error);
+  }
+};
+
+
+    // 기존 일기를 수정하는 함수
+    
+    const modifyDiary = async (diaryId: string, diaryData: DiaryData) => {
+      if (!currentUser) {
+          console.error('No user logged in');
+          return;
+      }
+      try {
+          const response = await fetch(`http://10.0.2.2:8080/diaries/${diaryId}`, {
+              method: 'PUT',
+              headers: {
+                  'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ ...diaryData, userId: currentUser.id }),
+          });
+          if (!response.ok) throw new Error('Failed to modify diary');
+          // 응답 처리
+      } catch (error) {
+          console.error('Error modifying diary:', error);
+      }
+  };
+  
+    // 일기를 삭제하는 함수
+    const removeDiary = async (diaryId: string) => {
+      try {
+        const response = await fetch(`http://10.0.2.2:8080/diaries/${diaryId}`, {
+          method: 'DELETE',
+          headers: {
+
+          },
+        });
+        if (!response.ok) throw new Error('Failed to delete diary');
+        // 삭제 성공 시의 처리 로직
+      } catch (error) {
+        console.error('Error deleting diary:', error);
+      }
+    };
+
+  // onSave 함수 내에서 onCreate를 호출합니다.
+  const onSave = async () => {
+    if (!currentUser) {
+      console.error('No user logged in');
+      return;
+    }
+    // DiaryData를 생성합니다.
+    const diaryData: DiaryData = {
+      title,
+      body,
+      date: date.toISOString(),
+      userId: currentUser.id,
+    };
+    // 백엔드에 일기를 저장하는 saveDiary 함수 호출
+    await saveDiary(diaryData);
+    navigation.goBack();
+  };
+  
 
   // 삭제 버튼 클릭 시 호출되는 함수
   const onAskRemove = () => {
@@ -74,10 +157,10 @@ function Write() {
         { text: '취소', style: 'cancel' },
         {
           text: '삭제',
-          onPress: () => {
-            // 로그 삭제 함수 호출
-            onRemove(log?.id?? ' ');
-            // 화면을 닫고 이전 화면으로 돌아감
+          onPress: async () => {
+            if (log && log.id) {
+              await removeDiary(log.id);
+            }
             navigation.pop();
           },
           style: 'destructive',

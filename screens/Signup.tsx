@@ -60,9 +60,9 @@ const Signup: React.FC<SignupProps> = ({ navigation }) => {
       let json = await response.json();
       console.log('회원가입 응답:', json);
 
-    Alert.alert("회원가입 완료", "회원가입이 성공적으로 완료되었습니다.", [
-      { text: "OK", onPress: () => navigation.navigate('Login') } // 로그인 화면으로 이동
-    ]);
+      Alert.alert("회원가입 완료", "회원가입이 성공적으로 완료되었습니다.", [
+        { text: "OK", onPress: () => navigation.navigate('Login') } // 로그인 화면으로 이동
+      ]);
 
     } catch (error) {
     console.error(error);
